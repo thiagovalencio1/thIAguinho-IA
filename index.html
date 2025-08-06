@@ -12,6 +12,10 @@
             margin: 0;
             padding: 20px;
         }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
         .jarvis-card {
             background: rgba(0, 0, 0, 0.7);
             padding: 25px;
@@ -23,6 +27,15 @@
         @keyframes pulse {
             0% { box-shadow: 0 0 30px rgba(0, 140, 255, 0.5); }
             50% { box-shadow: 0 0 60px rgba(0, 140, 255, 0.2); }
+        }
+        h1 {
+            color: #008cff;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        h2 {
+            color: #008cff;
+            margin-top: 25px;
         }
         button {
             background: #008cff;
@@ -39,6 +52,21 @@
         button:hover {
             background: #006bb3;
         }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #008cff;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+        .data-card {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
         .status {
             color: #4CAF50;
             font-weight: bold;
@@ -54,6 +82,44 @@
             margin-top: 20px;
             min-height: 100px;
         }
+        .tab {
+            overflow: hidden;
+            border: 1px solid #008cff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            width: 25%;
+            border-radius: 0;
+        }
+        .tab button:hover {
+            background-color: #006bb3;
+        }
+        .tab button.active {
+            background-color: #008cff;
+        }
+        .tabcontent {
+            display: none;
+            padding: 20px;
+            border-top: none;
+        }
+        .history-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .consumption-chart {
+            height: 200px;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -61,154 +127,544 @@
         <h1>ThIAguinho J.A.R.V.I.S.</h1>
         <p style="text-align: center;">Seu assistente automotivo inteligente</p>
 
-        <div class="jarvis-card">
-            <button id="scan-btn" onclick="startContinuousScan()">Procurar ELM327 Continuamente</button>
-            <p class="status" id="connection-status">Tentando conexão automática...</p>
+        <!-- Abas principais -->
+        <div class="tab">
+            <button class="tablinks active" onclick="openTab(event, 'vehicle')">Veículo</button>
+            <button class="tablinks" onclick="openTab(event, 'maintenance')">Manutenção</button>
+            <button class="tablinks" onclick="openTab(event, 'consumption')">Consumo</button>
+            <button class="tablinks" onclick="openTab(event, 'assistant')">Assistente</button>
+        </div>
 
-            <div class="data-card">
-                <p>RPM: <span id="rpm">0</span></p>
-                <p>Velocidade: <span id="speed">0</span> km/h</p>
-                <p>Temperatura: <span id="temperature">0</span> °C</p>
-                <p>Código DTC: <span id="dtc">Nenhum</span></p>
+        <!-- Aba de Veículo -->
+        <div id="vehicle" class="tabcontent" style="display: block;">
+            <div class="jarvis-card">
+                <h2>Cadastro do Veículo</h2>
+                
+                <div id="vehicle-form">
+                    <input type="text" id="vehicle-model" placeholder="Modelo do veículo">
+                    <input type="text" id="vehicle-year" placeholder="Ano">
+                    <input type="text" id="vehicle-plate" placeholder="Placa">
+                    <input type="number" id="vehicle-km" placeholder="Quilometragem atual">
+                    <button onclick="saveVehicle()">Salvar Veículo</button>
+                </div>
+
+                <div id="vehicle-info" style="display: none;">
+                    <h3>Informações do Veículo</h3>
+                    <div class="data-card">
+                        <p>Modelo: <span id="info-model"></span></p>
+                        <p>Ano: <span id="info-year"></span></p>
+                        <p>Placa: <span id="info-plate"></span></p>
+                        <p>Quilometragem: <span id="info-km"></span> km</p>
+                        <p>Próxima revisão: <span id="next-service"></span></p>
+                    </div>
+                    <button onclick="resetVehicle()">Alterar Veículo</button>
+                </div>
             </div>
+        </div>
 
-            <button id="diagnose-btn" disabled onclick="generateDiagnosis()">Gerar Diagnóstico</button>
-            <div class="jarvis-response" id="diagnosis"></div>
+        <!-- Aba de Manutenção -->
+        <div id="maintenance" class="tabcontent">
+            <div class="jarvis-card">
+                <h2>Histórico de Manutenção</h2>
+                
+                <div id="maintenance-form">
+                    <input type="date" id="maintenance-date" value="">
+                    <select id="maintenance-type">
+                        <option value="">Tipo de Manutenção</option>
+                        <option value="Troca de óleo">Troca de óleo</option>
+                        <option value="Troca de pastilhas">Troca de pastilhas</option>
+                        <option value="Troca de pneus">Troca de pneus</option>
+                        <option value="Revisão completa">Revisão completa</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                    <input type="text" id="maintenance-description" placeholder="Descrição">
+                    <input type="number" id="maintenance-km" placeholder="Quilometragem">
+                    <input type="number" id="maintenance-cost" placeholder="Custo (R$)">
+                    <button onclick="addMaintenance()">Adicionar Manutenção</button>
+                </div>
+
+                <h3>Manutenções Registradas</h3>
+                <div id="maintenance-history"></div>
+            </div>
+        </div>
+
+        <!-- Aba de Consumo -->
+        <div id="consumption" class="tabcontent">
+            <div class="jarvis-card">
+                <h2>Monitoramento de Consumo</h2>
+                
+                <div id="consumption-form">
+                    <input type="date" id="consumption-date" value="">
+                    <input type="number" id="consumption-km" placeholder="Quilometragem abastecida">
+                    <input type="number" id="consumption-liters" placeholder="Litros abastecidos">
+                    <input type="number" id="consumption-value" placeholder="Valor pago (R$)">
+                    <button onclick="addConsumption()">Registrar Abastecimento</button>
+                </div>
+
+                <h3>Histórico de Consumo</h3>
+                <div id="consumption-chart" class="consumption-chart"></div>
+                
+                <div id="consumption-history"></div>
+                
+                <h3>Análise de Consumo</h3>
+                <div id="consumption-analysis" class="jarvis-response">
+                    O ThIAguinho analisará seu consumo assim que houver dados suficientes.
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba do Assistente -->
+        <div id="assistant" class="tabcontent">
+            <div class="jarvis-card">
+                <h2>Assistente Virtual</h2>
+                
+                <div id="assistant-chat" style="height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
+                
+                <div style="display: flex;">
+                    <input type="text" id="assistant-input" placeholder="Pergunte ao ThIAguinho..." style="flex: 1; margin-right: 10px;">
+                    <button onclick="askAssistant()" style="width: auto;">Enviar</button>
+                </div>
+                
+                <h3>Dicas Automáticas</h3>
+                <div id="auto-tips" class="jarvis-response">
+                    O ThIAguinho fornecerá dicas personalizadas com base nos dados do seu veículo.
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const apiKey = "AIzaSyDlxSD-8SzZUmAIcqxbyb9Sup64C5AVHxo"; // Chave do Google API
-        let connected = false;
-        let device, characteristic;
-        let scanInterval;
-
-        // Inicialização automática
+        // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
-            startContinuousScan();
+            // Configurar datas padrão
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('maintenance-date').value = today;
+            document.getElementById('consumption-date').value = today;
+            
+            // Carregar dados salvos
+            loadVehicle();
+            loadMaintenance();
+            loadConsumption();
+            initAssistant();
         });
 
-        // Função para procurar continuamente o ELM327
-        async function startContinuousScan() {
-            if (scanInterval) return;
-            
-            scanInterval = setInterval(async () => {
-                try {
-                    document.getElementById('connection-status').textContent = 'Procurando ELM327...';
-                    device = await navigator.bluetooth.requestDevice({
-                        filters: [{ 
-                            services: ['00001101-0000-1000-8000-00805f9b34fb'] 
-                        }],
-                        optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
-                    });
+        // Funções para abas
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
 
-                    clearInterval(scanInterval);
-                    scanInterval = null;
-                    
-                    const server = await device.gatt.connect();
-                    const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-                    characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
-                    
-                    // Comandos de inicialização (como o Torque Pro)
-                    await sendCommand('ATZ'); // Reinicia o ELM327
-                    await sendCommand('ATE0'); // Desativa eco
-                    await sendCommand('ATSP0'); // Protocolo automático
-                    
-                    connected = true;
-                    document.getElementById('connection-status').textContent = 'Conectado!';
-                    document.getElementById('connection-status').classList.add('status');
-                    document.getElementById('diagnose-btn').disabled = false;
-                    
-                    startReadingData();
-                } catch (error) {
-                    document.getElementById('connection-status').textContent = 'Erro: ' + error.message;
-                    document.getElementById('connection-status').classList.add('error');
+        // Funções do veículo
+        function saveVehicle() {
+            const model = document.getElementById('vehicle-model').value;
+            const year = document.getElementById('vehicle-year').value;
+            const plate = document.getElementById('vehicle-plate').value;
+            const km = document.getElementById('vehicle-km').value;
+            
+            if (!model || !year || !plate || !km) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            const vehicle = {
+                model,
+                year,
+                plate,
+                km: parseInt(km),
+                lastServiceKm: parseInt(km)
+            };
+            
+            localStorage.setItem('thiaguinho-vehicle', JSON.stringify(vehicle));
+            loadVehicle();
+        }
+
+        function loadVehicle() {
+            const vehicleData = localStorage.getItem('thiaguinho-vehicle');
+            
+            if (vehicleData) {
+                const vehicle = JSON.parse(vehicleData);
+                
+                // Atualizar interface
+                document.getElementById('vehicle-form').style.display = 'none';
+                document.getElementById('vehicle-info').style.display = 'block';
+                
+                document.getElementById('info-model').textContent = vehicle.model;
+                document.getElementById('info-year').textContent = vehicle.year;
+                document.getElementById('info-plate').textContent = vehicle.plate;
+                document.getElementById('info-km').textContent = vehicle.km;
+                
+                // Calcular próxima revisão (a cada 10.000 km)
+                const nextService = vehicle.km + (10000 - (vehicle.km % 10000));
+                document.getElementById('next-service').textContent = nextService.toLocaleString() + ' km';
+                
+                // Atualizar assistente
+                updateAutoTips();
+            }
+        }
+
+        function resetVehicle() {
+            localStorage.removeItem('thiaguinho-vehicle');
+            document.getElementById('vehicle-form').style.display = 'block';
+            document.getElementById('vehicle-info').style.display = 'none';
+        }
+
+        // Funções de manutenção
+        function addMaintenance() {
+            const date = document.getElementById('maintenance-date').value;
+            const type = document.getElementById('maintenance-type').value;
+            const description = document.getElementById('maintenance-description').value;
+            const km = document.getElementById('maintenance-km').value;
+            const cost = document.getElementById('maintenance-cost').value;
+            
+            if (!date || !type || !km) {
+                alert('Por favor, preencha os campos obrigatórios.');
+                return;
+            }
+            
+            const maintenance = {
+                id: Date.now(),
+                date,
+                type,
+                description,
+                km: parseInt(km),
+                cost: parseFloat(cost) || 0
+            };
+            
+            let maintenances = JSON.parse(localStorage.getItem('thiaguinho-maintenances') || '[]');
+            maintenances.push(maintenance);
+            localStorage.setItem('thiaguinho-maintenances', JSON.stringify(maintenances));
+            
+            loadMaintenance();
+            updateAutoTips();
+        }
+
+        function loadMaintenance() {
+            const maintenances = JSON.parse(localStorage.getItem('thiaguinho-maintenances') || '[]');
+            const historyElement = document.getElementById('maintenance-history');
+            
+            if (maintenances.length === 0) {
+                historyElement.innerHTML = '<p>Nenhuma manutenção registrada.</p>';
+                return;
+            }
+            
+            // Ordenar por data (mais recente primeiro)
+            maintenances.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            let html = '';
+            maintenances.forEach(m => {
+                html += `
+                <div class="history-item">
+                    <p><strong>${formatDate(m.date)}</strong> - ${m.type}</p>
+                    <p>${m.description || 'Sem descrição'}</p>
+                    <p>Quilometragem: ${m.km.toLocaleString()} km | Custo: R$ ${m.cost.toFixed(2)}</p>
+                </div>
+                `;
+            });
+            
+            historyElement.innerHTML = html;
+        }
+
+        // Funções de consumo
+        function addConsumption() {
+            const date = document.getElementById('consumption-date').value;
+            const km = document.getElementById('consumption-km').value;
+            const liters = document.getElementById('consumption-liters').value;
+            const value = document.getElementById('consumption-value').value;
+            
+            if (!date || !km || !liters) {
+                alert('Por favor, preencha os campos obrigatórios.');
+                return;
+            }
+            
+            const consumption = {
+                id: Date.now(),
+                date,
+                km: parseInt(km),
+                liters: parseFloat(liters),
+                value: parseFloat(value) || 0
+            };
+            
+            let consumptions = JSON.parse(localStorage.getItem('thiaguinho-consumptions') || '[]');
+            consumptions.push(consumption);
+            localStorage.setItem('thiaguinho-consumptions', JSON.stringify(consumptions));
+            
+            loadConsumption();
+            analyzeConsumption();
+            updateAutoTips();
+        }
+
+        function loadConsumption() {
+            const consumptions = JSON.parse(localStorage.getItem('thiaguinho-consumptions') || '[]');
+            const historyElement = document.getElementById('consumption-history');
+            
+            if (consumptions.length === 0) {
+                historyElement.innerHTML = '<p>Nenhum abastecimento registrado.</p>';
+                return;
+            }
+            
+            // Ordenar por data (mais recente primeiro)
+            consumptions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            let html = '';
+            let totalKm = 0;
+            let totalLiters = 0;
+            
+            for (let i = 0; i < consumptions.length; i++) {
+                const c = consumptions[i];
+                const nextC = i > 0 ? consumptions[i-1] : null;
+                const distance = nextC ? c.km - nextC.km : 0;
+                const avgConsumption = distance > 0 ? (distance / c.liters).toFixed(2) : 'N/A';
+                
+                html += `
+                <div class="history-item">
+                    <p><strong>${formatDate(c.date)}</strong> - ${c.liters.toFixed(2)} L</p>
+                    <p>Quilometragem: ${c.km.toLocaleString()} km</p>
+                    <p>Consumo: ${avgConsumption} km/L | Custo: R$ ${c.value.toFixed(2)}</p>
+                </div>
+                `;
+                
+                totalKm += distance;
+                totalLiters += c.liters;
+            }
+            
+            historyElement.innerHTML = html;
+        }
+
+        function analyzeConsumption() {
+            const consumptions = JSON.parse(localStorage.getItem('thiaguinho-consumptions') || '[]');
+            const analysisElement = document.getElementById('consumption-analysis');
+            
+            if (consumptions.length < 2) {
+                analysisElement.textContent = 'Cadastre mais abastecimentos para análise de consumo.';
+                return;
+            }
+            
+            // Calcular consumo médio
+            let totalDistance = 0;
+            let totalLiters = 0;
+            
+            for (let i = 1; i < consumptions.length; i++) {
+                const prev = consumptions[i];
+                const curr = consumptions[i-1];
+                const distance = curr.km - prev.km;
+                
+                totalDistance += distance;
+                totalLiters += prev.liters;
+            }
+            
+            const avgConsumption = totalDistance / totalLiters;
+            const vehicleData = localStorage.getItem('thiaguinho-vehicle');
+            const vehicle = vehicleData ? JSON.parse(vehicleData) : null;
+            
+            let analysis = `Consumo médio: ${avgConsumption.toFixed(2)} km/L\n\n`;
+            
+            // Comparar com consumo esperado (valores de exemplo)
+            const expectedConsumption = vehicle ? 
+                (vehicle.model.toLowerCase().includes('hatch') ? 12 : 
+                 vehicle.model.toLowerCase().includes('sedan') ? 14 : 10) : 12;
+            
+            if (avgConsumption < expectedConsumption * 0.8) {
+                analysis += `Seu consumo está ${((expectedConsumption - avgConsumption) / expectedConsumption * 100).toFixed(1)}% abaixo do esperado.\n`;
+                analysis += 'Isso pode indicar problemas no sistema de injeção ou no motor.';
+            } else if (avgConsumption > expectedConsumption * 1.2) {
+                analysis += `Seu consumo está ${((avgConsumption - expectedConsumption) / expectedConsumption * 100).toFixed(1)}% acima do esperado.\n`;
+                analysis += 'Verifique pneus calibrados, filtros de ar e sistema de ignição.';
+            } else {
+                analysis += 'Seu consumo está dentro do esperado para o modelo do seu veículo.';
+            }
+            
+            analysisElement.textContent = analysis;
+        }
+
+        // Funções do assistente
+        function initAssistant() {
+            const chat = document.getElementById('assistant-chat');
+            chat.innerHTML = `
+            <div style="text-align: center; margin: 20px 0;">
+                <p>Olá, mestre. Sou o ThIAguinho, seu assistente automotivo inteligente.</p>
+                <p>Como posso ajudá-lo hoje?</p>
+            </div>
+            `;
+        }
+
+        function askAssistant() {
+            const input = document.getElementById('assistant-input');
+            const question = input.value.trim();
+            const chat = document.getElementById('assistant-chat');
+            
+            if (!question) return;
+            
+            // Adicionar pergunta do usuário
+            const userMsg = document.createElement('div');
+            userMsg.style.textAlign = 'right';
+            userMsg.style.margin = '10px 0';
+            userMsg.innerHTML = `<span style="background: #006bb3; padding: 8px 12px; border-radius: 15px 15px 0 15px;">${question}</span>`;
+            chat.appendChild(userMsg);
+            
+            // Resposta do assistente
+            const vehicleData = localStorage.getItem('thiaguinho-vehicle');
+            const maintenances = JSON.parse(localStorage.getItem('thiaguinho-maintenances') || '[]');
+            const consumptions = JSON.parse(localStorage.getItem('thiaguinho-consumptions') || '[]');
+            
+            let response = '';
+            
+            // Respostas baseadas em palavras-chave
+            if (question.toLowerCase().includes('revisão') || question.toLowerCase().includes('manutenção')) {
+                if (maintenances.length > 0) {
+                    const lastService = maintenances[0];
+                    response = `Sua última revisão foi em ${formatDate(lastService.date)} com ${lastService.km.toLocaleString()} km. ` +
+                              `A próxima revisão está programada para ${parseInt(lastService.km) + 10000} km.`;
+                } else {
+                    response = 'Você ainda não registrou nenhuma revisão. Recomendo registrar a próxima revisão a cada 10.000 km.';
                 }
-            }, 5000);
-        }
-
-        // Função para enviar comandos ao ELM327
-        async function sendCommand(cmd) {
-            if (!connected) return;
-            const encoder = new TextEncoder();
-            await characteristic.writeValue(encoder.encode(cmd + '\r'));
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const value = await characteristic.readValue();
-            return new TextDecoder().decode(value.buffer);
-        }
-
-        // Função para ler dados continuamente
-        async function startReadingData() {
-            if (!connected) return;
-            
-            try {
-                // Lê RPM (010C)
-                const rpmResponse = await sendCommand('010C');
-                document.getElementById('rpm').textContent = parseRPM(rpmResponse);
-                
-                // Lê velocidade (010D)
-                const speedResponse = await sendCommand('010D');
-                document.getElementById('speed').textContent = parseSpeed(speedResponse);
-                
-                // Lê temperatura (0105)
-                const tempResponse = await sendCommand('0105');
-                document.getElementById('temperature').textContent = parseTemperature(tempResponse);
-                
-                // Lê DTCs (03)
-                const dtcResponse = await sendCommand('03');
-                document.getElementById('dtc').textContent = parseDTC(dtcResponse) || 'Nenhum';
-                
-                setTimeout(startReadingData, 2000);
-            } catch (error) {
-                document.getElementById('connection-status').textContent = 'Erro na leitura: ' + error.message;
-                document.getElementById('connection-status').classList.add('error');
-                connected = false;
-                startContinuousScan(); // Reinicia a procura
+            } 
+            else if (question.toLowerCase().includes('consumo')) {
+                if (consumptions.length > 1) {
+                    let totalDistance = 0;
+                    let totalLiters = 0;
+                    
+                    for (let i = 1; i < consumptions.length; i++) {
+                        const prev = consumptions[i];
+                        const curr = consumptions[i-1];
+                        const distance = curr.km - prev.km;
+                        
+                        totalDistance += distance;
+                        totalLiters += prev.liters;
+                    }
+                    
+                    const avgConsumption = totalDistance / totalLiters;
+                    response = `Seu consumo médio é de ${avgConsumption.toFixed(2)} km/L. ` +
+                              `Para melhorar o consumo, verifique pneus calibrados e filtros de ar limpos.`;
+                } else {
+                    response = 'Cadastre mais abastecimentos para que eu possa analisar seu consumo.';
+                }
             }
-        }
-
-        // Funções para parsear respostas
-        function parseRPM(response) {
-            const hex = response.split(' ').slice(2).join('');
-            return parseInt(hex, 16) / 4;
-        }
-
-        function parseSpeed(response) {
-            const hex = response.split(' ').slice(2).join('');
-            return parseInt(hex, 16);
-        }
-
-        function parseTemperature(response) {
-            const hex = response.split(' ').slice(2).join('');
-            return parseInt(hex, 16) - 40;
-        }
-
-        function parseDTC(response) {
-            const codes = response.match(/4300[0-9A-F]{4}/g);
-            return codes ? codes.map(code => 'P' + code.slice(4)).join(', ') : null;
-        }
-
-        // Função para gerar diagnóstico com Google Gemini
-        async function generateDiagnosis() {
-            const rpm = document.getElementById('rpm').textContent;
-            const speed = document.getElementById('speed').textContent;
-            const temp = document.getElementById('temperature').textContent;
-            const dtc = document.getElementById('dtc').textContent;
-
-            const prompt = `Veículo com:\n- RPM: ${rpm}\n- Velocidade: ${speed} km/h\n- Temperatura: ${temp} °C\n- Código DTC: ${dtc}\n\nAnalise como o J.A.R.V.I.S. do Homem de Ferro.`;
-            
-            try {
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-                
-                const data = await response.json();
-                document.getElementById('diagnosis').textContent = data.candidates[0].content.parts[0].text;
-            } catch (error) {
-                document.getElementById('diagnosis').textContent = 'Erro na IA: ' + error.message;
+            else if (question.toLowerCase().includes('próxima')) {
+                if (vehicleData) {
+                    const vehicle = JSON.parse(vehicleData);
+                    const nextService = vehicle.km + (10000 - (vehicle.km % 10000));
+                    response = `Sua próxima revisão está programada para ${nextService.toLocaleString()} km.`;
+                } else {
+                    response = 'Cadastre seu veículo para que eu possa calcular a próxima revisão.';
+                }
             }
+            else if (question.toLowerCase().includes('economia') || question.toLowerCase().includes('gastando')) {
+                if (consumptions.length > 1) {
+                    let totalDistance = 0;
+                    let totalLiters = 0;
+                    
+                    for (let i = 1; i < consumptions.length; i++) {
+                        const prev = consumptions[i];
+                        const curr = consumptions[i-1];
+                        const distance = curr.km - prev.km;
+                        
+                        totalDistance += distance;
+                        totalLiters += prev.liters;
+                    }
+                    
+                    const avgConsumption = totalDistance / totalLiters;
+                    const expectedConsumption = vehicleData ? 
+                        (JSON.parse(vehicleData).model.toLowerCase().includes('hatch') ? 12 : 14) : 12;
+                    
+                    if (avgConsumption < expectedConsumption * 0.8) {
+                        response = 'Seu consumo está abaixo do esperado. Isso pode indicar problemas no sistema de injeção.';
+                    } else if (avgConsumption > expectedConsumption * 1.2) {
+                        response = 'Seu consumo está acima do esperado. Verifique pneus calibrados, filtros de ar e sistema de ignição.';
+                    } else {
+                        response = 'Seu consumo está dentro do esperado para o modelo do seu veículo.';
+                    }
+                } else {
+                    response = 'Cadastre mais abastecimentos para que eu possa analisar seu consumo.';
+                }
+            }
+            else {
+                response = 'Desculpe, não entendi sua pergunta. Você pode perguntar sobre revisões, consumo ou informações do veículo.';
+            }
+            
+            // Adicionar resposta do assistente
+            const assistantMsg = document.createElement('div');
+            assistantMsg.style.textAlign = 'left';
+            assistantMsg.style.margin = '10px 0';
+            assistantMsg.innerHTML = `<span style="background: #008cff; padding: 8px 12px; border-radius: 15px 15px 15px 0;">${response}</span>`;
+            chat.appendChild(assistantMsg);
+            
+            // Limpar input
+            input.value = '';
+            
+            // Rolar para o final
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function updateAutoTips() {
+            const tipsElement = document.getElementById('auto-tips');
+            const vehicleData = localStorage.getItem('thiaguinho-vehicle');
+            const maintenances = JSON.parse(localStorage.getItem('thiaguinho-maintenances') || '[]');
+            const consumptions = JSON.parse(localStorage.getItem('thiaguinho-consumptions') || '[]');
+            
+            let tips = '';
+            
+            // Dica baseada no veículo
+            if (vehicleData) {
+                const vehicle = JSON.parse(vehicleData);
+                tips += `Seu ${vehicle.model} ${vehicle.year} está com ${vehicle.km.toLocaleString()} km.\n\n`;
+            }
+            
+            // Dica baseada na última revisão
+            if (maintenances.length > 0) {
+                const lastService = maintenances[0];
+                const daysSinceService = Math.floor((new Date() - new Date(lastService.date)) / (1000 * 60 * 60 * 24));
+                
+                if (daysSinceService > 180) {
+                    tips += 'Sua última revisão foi há mais de 6 meses. Recomendo agendar uma revisão completa.\n\n';
+                }
+            }
+            
+            // Dica baseada no consumo
+            if (consumptions.length > 2) {
+                let totalDistance = 0;
+                let totalLiters = 0;
+                
+                for (let i = 1; i < consumptions.length; i++) {
+                    const prev = consumptions[i];
+                    const curr = consumptions[i-1];
+                    const distance = curr.km - prev.km;
+                    
+                    totalDistance += distance;
+                    totalLiters += prev.liters;
+                }
+                
+                const avgConsumption = totalDistance / totalLiters;
+                
+                if (avgConsumption < 8) {
+                    tips += 'Seu consumo está muito baixo. Verifique possíveis problemas no sistema de injeção.\n\n';
+                } else if (avgConsumption > 15) {
+                    tips += 'Seu consumo está excelente! Continue com os cuidados adequados.\n\n';
+                } else {
+                    tips += 'Seu consumo está dentro do esperado. Mantenha os cuidados regulares.\n\n';
+                }
+            }
+            
+            // Dica geral
+            if (!tips) {
+                tips = 'Cadastre seu veículo, revisões e abastecimentos para receber dicas personalizadas.';
+            }
+            
+            tipsElement.textContent = tips;
+        }
+
+        // Funções auxiliares
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR');
         }
     </script>
 </body>
