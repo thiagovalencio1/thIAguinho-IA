@@ -143,9 +143,11 @@
                 connectionStatus.textContent = 'Procurando dispositivos...';
                 connectionStatus.className = 'status';
                 
+                // CORREÇÃO: Filtra pelo endereço MAC do seu adaptador CHX
                 device = await navigator.bluetooth.requestDevice({
                     filters: [{ 
-                        namePrefix: 'OBDII' 
+                        name: 'CHX',
+                        addresses: ['00:12:06:29:35:25']
                     }],
                     optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
                 });
@@ -188,19 +190,21 @@
             if (!connected || !characteristic) return;
             
             try {
-                // Simula leitura de RPM (substitua com comandos reais do ELM327)
+                // Simula leitura de RPM
                 const rpmCommand = new TextEncoder().encode('010C\r');
                 await characteristic.writeValue(rpmCommand);
                 await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Lê a resposta
                 const rpmValue = await characteristic.readValue();
                 const rpm = parseRPM(rpmValue);
                 rpmElement.textContent = rpm;
                 
-                // Simula outros dados (substitua com leituras reais)
+                // Simula outros dados
                 speedElement.textContent = Math.floor(Math.random() * 80);
                 temperatureElement.textContent = 85 + Math.floor(Math.random() * 10);
                 
-                // Simula DTCs (substitua com leitura real)
+                // Simula DTCs
                 if (Math.random() > 0.7) {
                     dtcElement.textContent = 'P0171';
                 } else {
@@ -216,7 +220,7 @@
             }
         }
 
-        // Função para parsear RPM (simplificada)
+        // Função para parsear RPM
         function parseRPM(value) {
             const hex = Array.from(new Uint8Array(value.buffer))
                 .map(b => b.toString(16).padStart(2, '0'))
