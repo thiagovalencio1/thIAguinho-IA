@@ -3,335 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ThIAguinho J.A.R.V.I.S.</title>
+    <title>ThIAguinho Conexão</title>
     <style>
         body {
-            background: linear-gradient(135deg, #0f172a, #2b2c39);
+            background: #0F172A;
             color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
+            font-family: Arial;
             padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .jarvis-card {
-            background: rgba(0, 0, 0, 0.7);
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 0 30px rgba(0, 140, 255, 0.5);
-            margin: 20px 0;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 30px rgba(0, 140, 255, 0.5); }
-            50% { box-shadow: 0 0 60px rgba(0, 140, 255, 0.2); }
-        }
-        h1 {
-            color: #008cff;
             text-align: center;
-            margin-bottom: 5px;
         }
         button {
-            background: #008cff;
+            background: #008CFF;
             color: white;
+            padding: 15px 30px;
             border: none;
-            padding: 12px 25px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
-            width: 100%;
-            margin: 10px 0;
-            transition: background 0.3s;
+            font-size: 18px;
+            margin: 20px;
         }
-        button:hover {
-            background: #006bb3;
-        }
-        .status {
-            color: #4CAF50;
-            font-weight: bold;
+        #status {
             font-size: 1.2em;
-            text-align: center;
-            margin: 20px 0;
+            margin: 20px;
         }
-        .error {
-            color: #f44336;
-        }
-        .data-card {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 15px;
+        #data {
+            background: rgba(0,0,0,0.7);
+            padding: 20px;
             border-radius: 10px;
-            margin: 15px 0;
-        }
-        .bluetooth-status {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.5);
-            text-align: center;
-        }
-        .connection-attempts {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #aaa;
+            margin: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>ThIAguinho J.A.R.V.I.S.</h1>
-        <p style="text-align: center;">Seu assistente automotivo inteligente</p>
-
-        <div class="jarvis-card">
-            <h2 style="text-align: center;">Conexão com o Carro</h2>
-            
-            <div class="bluetooth-status" id="connection-status">
-                Tentando conexão...
-            </div>
-            
-            <div class="connection-attempts" id="attempts-counter">
-                Tentativas: 0
-            </div>
-            
-            <button id="connect-btn" onclick="connectToELM327()">Conectar ao ELM327</button>
-            <button id="retry-btn" style="display: none;" onclick="retryConnection()">Tentar Novamente</button>
-            
-            <div class="data-card">
-                <p>RPM: <span id="rpm">0</span></p>
-                <p>Velocidade: <span id="speed">0</span> km/h</p>
-                <p>Temperatura: <span id="temperature">0</span> °C</p>
-                <p>Código DTC: <span id="dtc">Nenhum</span></p>
-            </div>
-        </div>
-    </div>
+    <h1>ThIAguinho J.A.R.V.I.S.</h1>
+    <button onclick="connect()">Conectar ao ELM327</button>
+    <div id="status">Aguardando conexão...</div>
+    <div id="data"></div>
 
     <script>
-        // Variáveis globais
-        let bluetoothDevice = null;
-        let bluetoothCharacteristic = null;
-        let isConnected = false;
-        let connectionAttempts = 0;
-        let retryTimeout = null;
-        let readInterval = null;
+        let device, characteristic;
 
-        // Elementos do DOM
-        const connectionStatus = document.getElementById('connection-status');
-        const attemptsCounter = document.getElementById('attempts-counter');
-        const connectBtn = document.getElementById('connect-btn');
-        const retryBtn = document.getElementById('retry-btn');
-        const rpmElement = document.getElementById('rpm');
-        const speedElement = document.getElementById('speed');
-        const temperatureElement = document.getElementById('temperature');
-        const dtcElement = document.getElementById('dtc');
-
-        // Função principal de conexão
-        async function connectToELM327() {
-            // Desabilita botão durante tentativa
-            connectBtn.disabled = true;
-            connectionStatus.textContent = 'Procurando dispositivo...';
-            connectionStatus.className = 'bluetooth-status';
-            
+        async function connect() {
             try {
-                // 1. Primeira tentativa: usar o endereço MAC específico
-                try {
-                    bluetoothDevice = await navigator.bluetooth.requestDevice({
-                        filters: [{
-                            name: 'CHX',
-                            addresses: ['00:12:06:29:35:25']
-                        }],
-                        optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
-                    });
-                } catch (error) {
-                    // 2. Segunda tentativa: usar apenas o nome
-                    if (error.name === 'NotFoundError') {
-                        connectionStatus.textContent = 'Procurando por nome...';
-                        bluetoothDevice = await navigator.bluetooth.requestDevice({
-                            filters: [{
-                                name: 'CHX'
-                            }],
-                            optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
-                        });
-                    } else {
-                        throw error;
-                    }
-                }
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ 
+                        name: 'CHX',
+                        services: ['00001101-0000-1000-8000-00805f9b34fb']
+                    }]
+                });
                 
-                // 3. Conectar ao GATT
-                connectionStatus.textContent = 'Conectando ao GATT...';
-                const server = await bluetoothDevice.gatt.connect();
-                
-                // 4. Obter serviço e característica
-                connectionStatus.textContent = 'Obtendo serviço...';
+                const server = await device.gatt.connect();
                 const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-                bluetoothCharacteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
+                characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
                 
-                // 5. Inicializar o ELM327 (como o Torque Pro faz)
-                connectionStatus.textContent = 'Inicializando ELM327...';
-                await initializeELM327();
+                document.getElementById('status').textContent = 'Conectado!';
+                document.getElementById('status').style.color = '#4CAF50';
                 
-                // 6. Conexão bem-sucedida
-                isConnected = true;
-                connectionAttempts = 0;
-                connectionStatus.textContent = 'Conectado ao veículo!';
-                connectionStatus.className = 'bluetooth-status status';
-                connectBtn.style.display = 'none';
-                retryBtn.style.display = 'none';
+                // Teste de comunicação
+                const cmd = 'ATZ\r';
+                await characteristic.writeValue(new TextEncoder().encode(cmd));
+                await new Promise(resolve => setTimeout(resolve, 500));
                 
-                // 7. Começar a ler dados
-                startReadingData();
+                const value = await characteristic.readValue();
+                const response = new TextDecoder().decode(value);
+                document.getElementById('data').textContent = 'Resposta do ELM327: ' + response;
                 
             } catch (error) {
-                handleConnectionError(error);
-            } finally {
-                connectBtn.disabled = false;
+                document.getElementById('status').textContent = 'Erro: ' + error.message;
+                document.getElementById('status').style.color = '#f44336';
             }
         }
-
-        // Função para inicializar o ELM327
-        async function initializeELM327() {
-            // Reiniciar o ELM327
-            await sendCommand('ATZ');
-            await delay(1000);
-            
-            // Desativar eco
-            await sendCommand('ATE0');
-            await delay(500);
-            
-            // Desativar cabeçalho
-            await sendCommand('ATH0');
-            await delay(500);
-            
-            // Protocolo automático
-            await sendCommand('ATSP0');
-            await delay(500);
-        }
-
-        // Função para enviar comandos ao ELM327
-        async function sendCommand(command) {
-            if (!bluetoothCharacteristic) throw new Error('Característica Bluetooth não inicializada');
-            
-            const encoder = new TextEncoder();
-            await bluetoothCharacteristic.writeValue(encoder.encode(command + '\r'));
-            
-            // Aguardar resposta
-            await delay(300);
-            
-            // Ler resposta
-            const value = await bluetoothCharacteristic.readValue();
-            const decoder = new TextDecoder();
-            const response = decoder.decode(value);
-            
-            return response;
-        }
-
-        // Função para ler dados do veículo
-        async function startReadingData() {
-            if (!isConnected || !bluetoothCharacteristic) return;
-            
-            try {
-                // Ler RPM
-                const rpmResponse = await sendCommand('010C');
-                const rpm = parseRPM(rpmResponse);
-                rpmElement.textContent = rpm;
-                
-                // Ler velocidade
-                const speedResponse = await sendCommand('010D');
-                const speed = parseSpeed(speedResponse);
-                speedElement.textContent = speed;
-                
-                // Ler temperatura
-                const tempResponse = await sendCommand('0105');
-                const temp = parseTemperature(tempResponse);
-                temperatureElement.textContent = temp;
-                
-                // Ler DTCs
-                const dtcResponse = await sendCommand('03');
-                const dtc = parseDTC(dtcResponse);
-                dtcElement.textContent = dtc || 'Nenhum';
-                
-                // Continuar lendo a cada 2 segundos
-                readInterval = setTimeout(startReadingData, 2000);
-            } catch (error) {
-                handleReadingError(error);
-            }
-        }
-
-        // Funções para parsear respostas
-        function parseRPM(response) {
-            const hex = response.split(' ').slice(2).join('');
-            return (parseInt(hex, 16) / 4).toFixed(0);
-        }
-
-        function parseSpeed(response) {
-            const hex = response.split(' ').slice(2).join('');
-            return parseInt(hex, 16);
-        }
-
-        function parseTemperature(response) {
-            const hex = response.split(' ').slice(2).join('');
-            return (parseInt(hex, 16) - 40).toFixed(0);
-        }
-
-        function parseDTC(response) {
-            const codes = response.match(/4300[0-9A-F]{4}/g);
-            return codes ? codes.map(code => 'P' + code.slice(4)).join(', ') : null;
-        }
-
-        // Função para lidar com erros de conexão
-        function handleConnectionError(error) {
-            connectionAttempts++;
-            attemptsCounter.textContent = `Tentativas: ${connectionAttempts}`;
-            
-            if (error.message.includes('gattserver disconnected')) {
-                connectionStatus.textContent = 'Erro: Dispositivo desconectado. Verifique o ELM327.';
-            } else if (error.message.includes('requestDevice')) {
-                connectionStatus.textContent = 'Erro: Dispositivo não encontrado. Certifique-se de que o ELM327 está ligado.';
-            } else {
-                connectionStatus.textContent = `Erro: ${error.message}`;
-            }
-            
-            connectionStatus.className = 'bluetooth-status error';
-            retryBtn.style.display = 'block';
-            connectBtn.textContent = 'Conectar ao ELM327';
-        }
-
-        // Função para lidar com erros de leitura
-        function handleReadingError(error) {
-            connectionStatus.textContent = `Erro na leitura: ${error.message}`;
-            connectionStatus.className = 'bluetooth-status error';
-            
-            // Tentar reconectar após 5 segundos
-            retryTimeout = setTimeout(() => {
-                connectToELM327();
-            }, 5000);
-        }
-
-        // Função para tentar conexão novamente
-        function retryConnection() {
-            retryBtn.disabled = true;
-            connectionStatus.textContent = 'Tentando novamente...';
-            connectionStatus.className = 'bluetooth-status';
-            
-            setTimeout(() => {
-                retryBtn.disabled = false;
-                connectToELM327();
-            }, 1000);
-        }
-
-        // Função auxiliar para delay
-        function delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        // Limpar recursos ao descadastrar
-        window.addEventListener('beforeunload', () => {
-            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-                bluetoothDevice.gatt.disconnect();
-            }
-            if (readInterval) clearTimeout(readInterval);
-            if (retryTimeout) clearTimeout(retryTimeout);
-        });
     </script>
 </body>
 </html>
