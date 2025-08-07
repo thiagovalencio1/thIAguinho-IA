@@ -81,29 +81,24 @@
             try {
                 log("Etapa 1: Chamando navigator.bluetooth.requestDevice() SEM filtros específicos...");
                 // Solicita QUALQUER dispositivo Bluetooth disponível.
-                // Isso DEVE acionar o popup do Chrome.
                 const device = await navigator.bluetooth.requestDevice({
-                    // Filtro genérico ou sem filtro força a lista completa
                     acceptAllDevices: true,
-                    // Solicita acesso ao serviço SPP, se o dispositivo anunciá-lo
-                    optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
+                    optionalServices: ['00001101-0000-1000-8000-00805f9b34fb'] // UUID do serviço Serial Port Profile (SPP)
                 });
 
                 log(`Etapa 2: Dispositivo selecionado: ${device.name} (${device.id})`);
                 statusDiv.textContent = `Dispositivo selecionado: ${device.name}.`;
                 statusDiv.className = "success";
 
-                // Opcional: tentar conectar para confirmar
                 log("Etapa 3: Tentando conectar ao GATT Server...");
                 const server = await device.gatt.connect();
-                log("Etapa 4: Conectado ao GATT Server com sucesso!");
+                log("Conectado ao GATT Server com sucesso!");
                 statusDiv.textContent += " Conexão GATT estabelecida!";
-                 if (server.connected) {
-                     log("Etapa 5: Desconectando para teste...");
-                     server.disconnect();
-                     log("Etapa 6: Desconectado.");
-                 }
-
+                if (server.connected) {
+                    log("Desconectando para teste...");
+                    server.disconnect();
+                    log("Desconectado.");
+                }
 
             } catch (error) {
                 console.error("Erro capturado:", error);
@@ -112,10 +107,10 @@
                 statusDiv.className = "error";
                 log(`ERRO: ${errorMessage}`);
 
-                 if (errorMessage.includes("NotFoundError") || errorMessage.includes("User cancelled")) {
+                if (errorMessage.includes("NotFoundError") || errorMessage.includes("User cancelled")) {
                     log("DICA: Você cancelou a seleção ou nenhum dispositivo foi encontrado. Tente novamente.");
                 } else if (errorMessage.includes("SecurityError")) {
-                     log("DICA: Permissão de Bluetooth negada. Verifique as permissões do site nas configurações do Chrome (chrome://settings/content/bluetooth).");
+                    log("DICA: Permissão de Bluetooth negada. Verifique as permissões do site nas configurações do Chrome (chrome://settings/content/bluetooth).");
                 }
 
             } finally {
