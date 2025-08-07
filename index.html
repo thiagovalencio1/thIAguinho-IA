@@ -3,76 +3,425 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ThIAguinho Conexão</title>
+    <title>ThIAguinho J.A.R.V.I.S.</title>
     <style>
         body {
-            background: #0F172A;
+            background: linear-gradient(135deg, #0f172a, #2b2c39);
             color: white;
-            font-family: Arial;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
             padding: 20px;
-            text-align: center;
+            text-align: center; /* Centraliza todo o conteúdo */
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .jarvis-card {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0, 140, 255, 0.5);
+            margin: 20px 0;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 30px rgba(0, 140, 255, 0.5); }
+            50% { box-shadow: 0 0 60px rgba(0, 140, 255, 0.2); }
+        }
+        h1 {
+            color: #008cff;
+            margin-bottom: 5px;
         }
         button {
-            background: #008CFF;
+            background: #008cff;
             color: white;
-            padding: 15px 30px;
             border: none;
+            padding: 15px 30px; /* Botão maior */
             border-radius: 8px;
             cursor: pointer;
-            font-size: 18px;
-            margin: 20px;
+            font-size: 18px; /* Fonte maior */
+            width: 100%; /* Botão ocupa toda a largura */
+            margin: 20px 0;
+            transition: background 0.3s;
         }
-        #status {
+        button:hover {
+            background: #006bb3;
+        }
+        button:disabled {
+             background: #555;
+             cursor: not-allowed;
+        }
+        .status {
+            color: #4CAF50;
+            font-weight: bold;
             font-size: 1.2em;
-            margin: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.5);
         }
-        #data {
-            background: rgba(0,0,0,0.7);
-            padding: 20px;
+        .error {
+            color: #f44336;
+        }
+        .data-card {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
             border-radius: 10px;
-            margin: 20px;
+            margin: 15px 0;
+            text-align: left; /* Alinha dados à esquerda dentro do card */
+        }
+        /* Esconde os dados até conectar */
+        .data-section {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>ThIAguinho J.A.R.V.I.S.</h1>
-    <button onclick="connect()">Conectar ao ELM327</button>
-    <div id="status">Aguardando conexão...</div>
-    <div id="data"></div>
+    <div class="container">
+        <h1>ThIAguinho J.A.R.V.I.S.</h1>
+        <p>Seu assistente automotivo inteligente</p>
+
+        <div class="jarvis-card">
+            <h2>Conexão com o Carro</h2>
+
+            <!-- Botão de Conexão Centralizado -->
+            <button id="connect-btn">Conectar ao ELM327</button>
+
+            <!-- Status da Conexão -->
+            <div class="status" id="connection-status">
+                Clique no botão para conectar.
+            </div>
+
+            <!-- Seção de Dados (inicialmente escondida) -->
+            <div class="data-section" id="data-section">
+                <h3>Dados do Veículo</h3>
+                <div class="data-card">
+                    <p>RPM: <span id="rpm">0</span></p>
+                    <p>Velocidade: <span id="speed">0</span> km/h</p>
+                    <p>Temperatura: <span id="temperature">0</span> °C</p>
+                    <p>Código DTC: <span id="dtc">Nenhum</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
-        let device, characteristic;
+        // --- Configuração ---
+        const TARGET_DEVICE_NAME = 'CHX'; // Nome do dispositivo ELM327
+        const TARGET_DEVICE_MAC = '00:12:06:29:35:25'; // MAC Address (opcional para filtro inicial)
+        const SERVICE_UUID = '00001101-0000-1000-8000-00805f9b34fb'; // UUID do serviço Serial Port Profile (SPP)
+        const CHARACTERISTIC_UUID = '00001101-0000-1000-8000-00805f9b34fb'; // UUID da característica SPP
 
-        async function connect() {
-            try {
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [{ 
-                        name: 'CHX',
-                        services: ['00001101-0000-1000-8000-00805f9b34fb']
-                    }]
-                });
-                
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-                characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
-                
-                document.getElementById('status').textContent = 'Conectado!';
-                document.getElementById('status').style.color = '#4CAF50';
-                
-                // Teste de comunicação
-                const cmd = 'ATZ\r';
-                await characteristic.writeValue(new TextEncoder().encode(cmd));
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                const value = await characteristic.readValue();
-                const response = new TextDecoder().decode(value);
-                document.getElementById('data').textContent = 'Resposta do ELM327: ' + response;
-                
-            } catch (error) {
-                document.getElementById('status').textContent = 'Erro: ' + error.message;
-                document.getElementById('status').style.color = '#f44336';
+        // --- Variáveis Globais ---
+        let device = null;
+        let characteristic = null;
+        let isConnected = false;
+        let readIntervalId = null;
+
+        // --- Elementos DOM ---
+        const connectBtn = document.getElementById('connect-btn');
+        const statusDiv = document.getElementById('connection-status');
+        const dataSection = document.getElementById('data-section');
+        const rpmElement = document.getElementById('rpm');
+        const speedElement = document.getElementById('speed');
+        const temperatureElement = document.getElementById('temperature');
+        const dtcElement = document.getElementById('dtc');
+
+        // --- Funções Auxiliares ---
+        function updateStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status'; // Reseta classes
+            if (isError) {
+                statusDiv.classList.add('error');
             }
         }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // --- Funções de Comunicação Bluetooth ---
+        async function sendCommand(cmd) {
+            if (!characteristic) {
+                throw new Error("Característica Bluetooth não disponível.");
+            }
+            const encoder = new TextEncoder();
+            // console.log(`[BT] Enviando: ${cmd}`); // Log para debug
+            await characteristic.writeValue(encoder.encode(cmd + '\r'));
+            await delay(100); // Pequeno delay para processamento
+            const value = await characteristic.readValue();
+            const decoder = new TextDecoder();
+            const response = decoder.decode(value);
+            // console.log(`[BT] Recebido: ${response}`); // Log para debug
+            return response.trim();
+        }
+
+        // --- Funções de Parse ---
+        function parseOBDResponse(response, pidBytes) {
+            // Exemplo de resposta válida: "41 0C 1F 40" para PID 0C (RPM)
+            const parts = response.split(' ');
+            if (parts.length >= 2 + pidBytes && parts[0] === '41' && parts[1] === pidBytes.toString(16).padStart(2, '0').toUpperCase()) {
+                // Extrai os bytes de dados
+                const dataBytes = parts.slice(2, 2 + pidBytes).map(b => parseInt(b, 16));
+                return dataBytes;
+            }
+            return null; // Resposta inválida ou erro
+        }
+
+        function parseRPM(response) {
+            const dataBytes = parseOBDResponse(response, 2); // PID 0C usa 2 bytes
+            if (dataBytes) {
+                // RPM = ((A*256)+B)/4
+                const rpm = ((dataBytes[0] * 256) + dataBytes[1]) / 4;
+                return Math.round(rpm);
+            }
+            return 0;
+        }
+
+        function parseSpeed(response) {
+            const dataBytes = parseOBDResponse(response, 1); // PID 0D usa 1 byte
+            if (dataBytes) {
+                // Velocidade = A (km/h)
+                return dataBytes[0];
+            }
+            return 0;
+        }
+
+        function parseTemperature(response) {
+            const dataBytes = parseOBDResponse(response, 1); // PID 05 usa 1 byte
+            if (dataBytes) {
+                // Temperatura = A - 40 (°C)
+                return dataBytes[0] - 40;
+            }
+            return 0;
+        }
+
+        function parseDTCs(response) {
+             // Exemplo de resposta válida para 03: "43 01 33 00 00 00 00" (1 DTC: P0133)
+            const parts = response.split(' ');
+            if (parts.length >= 2 && parts[0] === '43') {
+                 const dtcCount = parseInt(parts[1], 16);
+                 if(dtcCount > 0) {
+                     const dtcList = [];
+                     // Cada DTC ocupa 2 bytes
+                     for(let i=0; i < dtcCount; i++) {
+                         const byte1Index = 2 + (i*2);
+                         const byte2Index = 3 + (i*2);
+                         if(parts[byte1Index] && parts[byte2Index]) {
+                             const byte1 = parseInt(parts[byte1Index], 16);
+                             const byte2 = parseInt(parts[byte2Index], 16);
+                             // Formato do código DTC
+                             const typeNum = (byte1 >> 6) & 0x03; // 2 bits mais significativos do primeiro byte
+                             const typeLetter = ["P", "C", "B", "U"][typeNum];
+                             const code1 = (byte1 >> 4) & 0x03; // Bits 5-4
+                             const code2 = byte1 & 0x0F; // Bits 3-0
+                             const code3 = (byte2 >> 4) & 0x0F; // Bits 7-4 do segundo byte
+                             const code4 = byte2 & 0x0F; // Bits 3-0 do segundo byte
+                             const dtcCode = `${typeLetter}${code1}${code2}${code3}${code4}`;
+                             dtcList.push(dtcCode);
+                         }
+                     }
+                     return dtcList.join(', ');
+                 } else {
+                     return "Nenhum";
+                 }
+            }
+            return "Erro na leitura";
+        }
+
+
+        // --- Funções Principais ---
+        async function initializeELM327() {
+            updateStatus("Inicializando ELM327...");
+            try {
+                // 1. Reset
+                let response = await sendCommand('ATZ');
+                await delay(2000); // Tempo maior para reset
+
+                // 2. Echo Off
+                response = await sendCommand('ATE0');
+                if (!response.includes('OK')) {
+                     console.warn("Resposta inesperada para ATE0:", response);
+                }
+
+                // 3. Linefeeds Off
+                response = await sendCommand('ATL0');
+                 if (!response.includes('OK')) {
+                     console.warn("Resposta inesperada para ATL0:", response);
+                }
+
+                // 4. Headers Off
+                response = await sendCommand('ATH0');
+                 if (!response.includes('OK')) {
+                     console.warn("Resposta inesperada para ATH0:", response);
+                }
+
+                // 5. Spaces Off
+                response = await sendCommand('ATS0');
+                 if (!response.includes('OK')) {
+                     console.warn("Resposta inesperada para ATS0:", response);
+                }
+
+                 // 6. Protocolo Automático
+                response = await sendCommand('ATSP0');
+                 if (!response.includes('OK')) {
+                     console.warn("Resposta inesperada para ATSP0:", response);
+                }
+
+                // 7. Verificar protocolo
+                 response = await sendCommand('ATDP');
+                 console.log("Protocolo negociado:", response);
+
+                updateStatus("ELM327 inicializado com sucesso!");
+            } catch (error) {
+                console.error("Erro na inicialização:", error);
+                throw new Error(`Falha na inicialização: ${error.message}`);
+            }
+        }
+
+        async function connectToELM327() {
+            if (isConnected) {
+                console.log("Já está conectado.");
+                return;
+            }
+
+            connectBtn.disabled = true;
+            updateStatus("Procurando dispositivo Bluetooth...");
+
+            try {
+                // Solicita ao usuário para selecionar o dispositivo
+                // Tenta primeiro com o MAC, depois apenas com o nome
+                try {
+                    device = await navigator.bluetooth.requestDevice({
+                         filters: [{ name: TARGET_DEVICE_NAME, addresses: [TARGET_DEVICE_MAC] }],
+                         optionalServices: [SERVICE_UUID]
+                    });
+                } catch (e) {
+                    console.warn("Falha ao conectar com MAC, tentando apenas com nome:", e);
+                    device = await navigator.bluetooth.requestDevice({
+                         filters: [{ name: TARGET_DEVICE_NAME }], // Remove o filtro de MAC
+                         optionalServices: [SERVICE_UUID]
+                    });
+                }
+
+                updateStatus("Conectando ao dispositivo...");
+                const server = await device.gatt.connect();
+
+                updateStatus("Obtendo serviço...");
+                const service = await server.getPrimaryService(SERVICE_UUID);
+
+                updateStatus("Obtendo característica...");
+                characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+                isConnected = true;
+                updateStatus("Conectado ao ELM327!", false); // Sucesso, não erro
+                connectBtn.textContent = "Desconectar";
+                connectBtn.disabled = false; // Reabilita o botão
+
+                // Inicializa o ELM327
+                await initializeELM327();
+
+                // Mostra a seção de dados
+                dataSection.style.display = 'block';
+
+                // Inicia a leitura dos dados
+                startReadingData();
+
+            } catch (error) {
+                console.error("Erro na conexão:", error);
+                isConnected = false;
+                device = null;
+                characteristic = null;
+                updateStatus(`Erro na conexão: ${error.message}`, true);
+                connectBtn.textContent = "Conectar ao ELM327";
+                connectBtn.disabled = false;
+                dataSection.style.display = 'none'; // Esconde dados se falhar
+            }
+        }
+
+        async function disconnectFromELM327() {
+             if (readIntervalId) {
+                 clearInterval(readIntervalId);
+                 readIntervalId = null;
+             }
+
+             if (device && device.gatt.connected) {
+                 device.gatt.disconnect();
+             }
+             isConnected = false;
+             device = null;
+             characteristic = null;
+             updateStatus("Desconectado.");
+             connectBtn.textContent = "Conectar ao ELM327";
+             dataSection.style.display = 'none';
+             // Reseta valores na tela
+             rpmElement.textContent = '0';
+             speedElement.textContent = '0';
+             temperatureElement.textContent = '0';
+             dtcElement.textContent = 'Nenhum';
+        }
+
+        async function readVehicleData() {
+            if (!isConnected) return;
+
+            try {
+                 // Ler RPM
+                 const rpmResponse = await sendCommand('010C'); // PID para RPM
+                 const rpmValue = parseRPM(rpmResponse);
+                 rpmElement.textContent = rpmValue;
+
+                 // Ler Velocidade
+                 const speedResponse = await sendCommand('010D'); // PID para Velocidade
+                 const speedValue = parseSpeed(speedResponse);
+                 speedElement.textContent = speedValue;
+
+                 // Ler Temperatura do Motor
+                 const tempResponse = await sendCommand('0105'); // PID para Temperatura
+                 const tempValue = parseTemperature(tempResponse);
+                 temperatureElement.textContent = tempValue;
+
+                 // Ler DTCs (apenas se houver mudança ou a cada X leituras)
+                 // Para simplificar, vamos ler a cada ciclo por enquanto
+                 const dtcResponse = await sendCommand('03'); // Solicitar códigos de falha
+                 const dtcValue = parseDTCs(dtcResponse);
+                 dtcElement.textContent = dtcValue;
+
+            } catch (error) {
+                 console.error("Erro ao ler dados do veículo:", error);
+                 updateStatus(`Erro na leitura: ${error.message}`, true);
+                 // Em caso de erro de leitura, tenta reconectar
+                 // disconnectFromELM327(); // Ou tentar reconectar automaticamente
+            }
+        }
+
+        function startReadingData() {
+            if (readIntervalId) {
+                 clearInterval(readIntervalId);
+            }
+            // Lê dados a cada 2 segundos
+            readIntervalId = setInterval(readVehicleData, 2000);
+            // Lê uma vez imediatamente
+            readVehicleData();
+        }
+
+        // --- Event Listeners ---
+        connectBtn.addEventListener('click', async () => {
+            if (isConnected) {
+                await disconnectFromELM327();
+            } else {
+                await connectToELM327();
+            }
+        });
+
+        // --- Cleanup on page unload ---
+        window.addEventListener('beforeunload', () => {
+             if (readIntervalId) clearInterval(readIntervalId);
+             if (device && device.gatt.connected) {
+                 device.gatt.disconnect();
+             }
+        });
+
     </script>
 </body>
 </html>
